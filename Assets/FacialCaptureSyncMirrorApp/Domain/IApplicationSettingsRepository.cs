@@ -5,6 +5,6 @@ namespace FacialCaptureSync.MirrorApp
     public interface IApplicationSettingsRepository
     {
         Task<ApplicationSettings> FindAsync();
-        Task SaveAsync(ApplicationSettings value);
+        Task<bool> SaveAsync(ApplicationSettings value);
     }
 }

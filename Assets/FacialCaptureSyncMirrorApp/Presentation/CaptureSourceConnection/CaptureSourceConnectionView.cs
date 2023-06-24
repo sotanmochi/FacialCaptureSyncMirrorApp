@@ -47,6 +47,17 @@ namespace FacialCaptureSync.MirrorApp
         {
             _captureSourceTypeDropdown.UpdateDropdownOptions(items);
         }
+
+        public void SetIpAddress(string value)
+        {
+            _ipAddress.text = value;
+        }
+
+        public void SetCaptureSourceType(int index)
+        {
+            _selectedCaptureSourceType = (index, _captureSourceTypeDropdown.Items[index]);
+            _captureSourceTypeDropdown.SetValueWithoutNotify(index);
+        }
     }
 
     public class CaptureSourcePropeties

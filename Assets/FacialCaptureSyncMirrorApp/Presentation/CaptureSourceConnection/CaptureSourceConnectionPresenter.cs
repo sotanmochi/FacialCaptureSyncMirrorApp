@@ -4,33 +4,38 @@ namespace FacialCaptureSync.MirrorApp
 {
     public sealed class CaptureSourceConnectionPresenter
     {
-        readonly CaptureSourceConnectionView _view;
-        readonly FacialCaptureContext _context;
+        private readonly CaptureSourceConnectionView _view;
+        private readonly FacialCaptureContext _captureContext;
 
         public CaptureSourceConnectionPresenter
         (
             CaptureSourceConnectionView view,
-            FacialCaptureContext context
+            FacialCaptureContext captureContext
         )
         {
             _view = view;
-            _context = context;
+            _captureContext = captureContext;
         }
 
         public void Initialize()
         {
-            _view.UpdateDropdownOptions(Enum.GetNames(typeof(FacialCaptureSourceType)));
+            var captureSourceTypes = Enum.GetNames(typeof(FacialCaptureSourceType));
+            var currentSourceTypeIndex = Array.IndexOf(captureSourceTypes, _captureContext.CaptureSourceType.ToString());
+
+            _view.UpdateDropdownOptions(captureSourceTypes);
+            _view.SetCaptureSourceType(currentSourceTypeIndex);
+            _view.SetIpAddress(_captureContext.CaptureDeviceAddress);
 
             _view.OnClickConnect += properties => 
             {
-                var captureSourceType = FacialCaptureSourceType.Unknown;
+                var captureSourceType = FacialCaptureSourceType.iFacialMocap;
 
                 if (Enum.TryParse(typeof(FacialCaptureSourceType), properties.CaptureSourceTypeName, out var result))
                 {
                     captureSourceType = (FacialCaptureSourceType)result;
                 }
 
-                _context.Start(captureSourceType, properties.CaptureSourceDeviceIpAddress);
+                _captureContext.Start(captureSourceType, properties.CaptureSourceDeviceIpAddress);
             };
         }
     }

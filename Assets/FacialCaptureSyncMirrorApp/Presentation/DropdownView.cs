@@ -11,27 +11,37 @@ namespace FacialCaptureSync.MirrorApp
         [SerializeField] Dropdown _dropdown;
 
         public event Action<(int Index, string Value)> OnSelected;
+        public string[] Items => _items;
 
         private string[] _items = Array.Empty<string>();
 
-        private void Awake()
+        void Awake()
         {
             _dropdown.onValueChanged.AddListener(OnValueChangedEventHandler);
         }
 
-        private void OnDestroy()
+        void OnDestroy()
         {
             _dropdown.onValueChanged.RemoveAllListeners();
         }
 
         private void OnValueChangedEventHandler(int selectedIndex)
         {
-            if (selectedIndex < 1) { return; }
+            if (selectedIndex < 1)
+            {
+                selectedIndex = 1;
+                SetValueWithoutNotify(selectedIndex - 1);
+            }
 
-            var index = selectedIndex - 1;
-            var value = _items[index];
+            var itemIndex = selectedIndex - 1;
+            var value = _items[itemIndex];
 
-            OnSelected?.Invoke((index, value));
+            OnSelected?.Invoke((itemIndex, value));
+        }
+
+        public void SetValueWithoutNotify(int itemIndex)
+        {
+            _dropdown.SetValueWithoutNotify(itemIndex + 1);
         }
 
         public void SetDrowdownText(string value)
@@ -46,12 +56,12 @@ namespace FacialCaptureSync.MirrorApp
             _dropdown.ClearOptions();
             _dropdown.RefreshShownValue();
             _dropdown.options.Add(new Dropdown.OptionData { text = _dropdownText });
-            
+
             foreach (var item in items)
             {
                 _dropdown.options.Add(new Dropdown.OptionData { text = item });
             }
-            
+
             _dropdown.RefreshShownValue();
         }
     }

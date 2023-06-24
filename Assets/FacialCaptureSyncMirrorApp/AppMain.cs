@@ -1,4 +1,6 @@
+using System;
 using UnityEngine;
+using PlayerLooper;
 using FacialCaptureSync.MirrorApp.Infrastructure;
 using FacialCaptureSync.MirrorApp.Infrastructure.Persistence;
 
@@ -7,19 +9,16 @@ namespace FacialCaptureSync.MirrorApp
     /// <summary>
     /// Entry point of the application.
     /// </summary>
-    public class AppMain : MonoBehaviour
+    public sealed class AppMain : MonoBehaviour, IInitializable, IStartable, IPostLateUpdatable, IDisposable
     {
         [SerializeField] CaptureSourceConnectionView _captureSourceConnectionView;
         [SerializeField] LoadingVrmView _loadingVrmView;
         [SerializeField] RuntimeAnimatorController _animatorController;
 
-        private IApplicationSettingsRepository _settingsRepository;
         private IAvatarResourceProvider _avatarResourceProvider;
         private IBinaryDataProvider _binaryDataProvider;
 
-        private ApplicationSettings _appsettings;
-        private FacialCaptureTarget _captureTarget;
-
+        private ApplicationContext _applicationContext;
         private FacialCaptureContext _captureContext;
         private AvatarContext _avatarContext;
 
@@ -28,54 +27,70 @@ namespace FacialCaptureSync.MirrorApp
 
         void Awake()
         {
+            GlobalPlayerLooper.Register(this);
+        }
+
+        void IInitializable.Initialize()
+        {
+            DebugLog("Initializing");
+
             UnityEngine.QualitySettings.vSyncCount = 0;
             UnityEngine.Application.targetFrameRate = 60;
             UnityEngine.Application.runInBackground = true;
 
-            _settingsRepository = new ApplicationSettingsLocalRepository();
-
             _binaryDataProvider = new LocalFileBinaryDataProvider();
             _avatarResourceProvider = new UrpVrmProvider(_binaryDataProvider);
 
+            _applicationContext = new ApplicationContext(new ApplicationSettingsLocalRepository());
+            _captureContext = new FacialCaptureContext(_applicationContext);
             _avatarContext = new AvatarContext(_avatarResourceProvider, _animatorController);
-            _captureContext = new FacialCaptureContext();
 
-            _loadingVrmPresenter = new LoadingVrmPresenter(_loadingVrmView, _avatarContext);
             _captureSourceConnectionPresenter = new CaptureSourceConnectionPresenter(_captureSourceConnectionView, _captureContext);
+            _loadingVrmPresenter = new LoadingVrmPresenter(_loadingVrmView, _avatarContext);
+
+            DebugLog("Initialized");
+        }
+
+        async void IStartable.Start()
+        {
+            DebugLog("Starting");
 
             _avatarContext.OnLoaded += () =>
             {
                 _captureContext.SetCaptureTarget(_avatarContext.FacialCaptureTarget);
             };
 
-            _loadingVrmPresenter.Initialize();
+            await _applicationContext.InitializeAsync();
+            _captureContext.Initialize();
+
             _captureSourceConnectionPresenter.Initialize();
+            _loadingVrmPresenter.Initialize();
+
+            DebugLog("Started");
         }
 
-        async void Start()
-        {
-            _appsettings = await _settingsRepository.FindAsync();
-            if (_appsettings is null)
-            {
-                _appsettings = new ApplicationSettings()
-                {
-                    CaptureSourceDeviceAddress = "127.0.0.1",
-                    CaptureSourceType = FacialCaptureSourceType.Unknown,
-                };
-            }
-        }
-
-        void LateUpdate()
+        void IPostLateUpdatable.PostLateUpdate()
         {
             _captureContext.Update();
         }
 
-        void OnDestroy()
+        async void IDisposable.Dispose()
         {
+            DebugLog("Disposing");
+
             _captureContext.Stop();
-            _appsettings.CaptureSourceType = _captureContext.CaptureSourceType;
-            _appsettings.CaptureSourceDeviceAddress = _captureContext.CaptureDeviceAddress;
-            _settingsRepository.SaveAsync(_appsettings);
+            await _applicationContext.SaveSettingsAsync(_captureContext.CaptureDeviceAddress, _captureContext.CaptureSourceType);
+
+            DebugLog("Disposed");
+        }
+
+        [
+            System.Diagnostics.Conditional("UNITY_EDITOR"),
+            System.Diagnostics.Conditional("DEVELOPMENT_BUILD"),
+        ]
+        private static void DebugLog(object message)
+        {
+            UnityEngine.Debug.Log($"[DEBUG] [{nameof(AppMain)}] {message}");
         }
     }
 }
